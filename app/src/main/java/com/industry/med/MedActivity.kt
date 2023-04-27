@@ -1,8 +1,11 @@
 package com.industry.med
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
@@ -22,14 +25,21 @@ import com.yandex.div.DivDataTag
 import com.yandex.div.core.Div2Context
 import com.yandex.div.core.DivActionHandler
 import com.yandex.div.core.DivConfiguration
+import com.yandex.div.core.DivViewFacade
 import com.yandex.div.core.images.*
 import com.yandex.div.core.view2.Div2View
 import com.yandex.div.data.DivParsingEnvironment
 import com.yandex.div.json.ParsingErrorLogger
+import com.yandex.div2.DivAction
 import com.yandex.div2.DivData
 import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
+import androidx.core.content.ContextCompat.startActivity
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.widget.NestedScrollView
+import com.yandex.div.font.DivTypefaceProvider
+import javax.inject.Inject
 
 class MedActivity : AppCompatActivity() {
     private lateinit var binding: MainBinding
@@ -49,22 +59,22 @@ class MedActivity : AppCompatActivity() {
 
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.labelVisibilityMode = NavigationBarView.LABEL_VISIBILITY_UNLABELED
-        val item: MenuItem = bottomNavigation.menu.getItem(card)
-        item.isChecked = true
+        val items: MenuItem = bottomNavigation.menu.getItem(card)
+        items.isChecked = true
 
         bottomNavigation.setOnItemSelectedListener { item ->
             when(item.itemId) {
                 R.id.home_link -> {
-                    loadFragment(0)
+                    startActivity(this, Intent(this, MedActivity::class.java), null)
                 }
                 R.id.calendar_link -> {
-                    loadFragment(1)
+
                 }
                 R.id.calling_link -> {
-                    loadFragment(2)
+                    startActivity(this, Intent(this, CallingActivity::class.java), null)
                 }
                 R.id.profile_link -> {
-                    loadFragment(3)
+
                 }
             }
 
@@ -76,7 +86,7 @@ class MedActivity : AppCompatActivity() {
             configuration = createDivConfiguration()
         )
 
-        val request = Request.Builder().url("https://per.yoursite71.ru/main.php").build()
+        val request = Request.Builder().url("https://api.florazon.net/laravel/public/med?json=home").build()
         val client = OkHttpClient()
 
         client.newCall(request).enqueue(object : Callback {
@@ -95,55 +105,80 @@ class MedActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         serverJson = json
-                        loadFragment(card)
+
+                        val progress = findViewById<ProgressBar>(R.id.progress)
+                        progress.visibility = ProgressBar.GONE
+
+                        if (serverJson != "") {
+                            try {
+                                val divJson = JSONObject(serverJson)
+                                val templateJson = divJson.optJSONObject("templates")
+                                val cardJson = divJson.getJSONObject("card")
+
+                                val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
+                                (oldView.parent as ViewGroup).removeView(oldView)
+
+                                val div = LinearLayout(this@MedActivity)
+
+                                div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                                div.orientation = LinearLayout.VERTICAL
+                                div.id = R.id.main_layout
+                                div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
+                                binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
+
+                                val editor: SharedPreferences.Editor = setting.edit()
+                                editor.putInt("card", 0)
+                                editor.apply()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
+                            }
+                        } else {
+                            Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
         })
     }
 
-    private fun loadFragment(id: Int) {
-        val progress = findViewById<ProgressBar>(R.id.progress)
-        progress.visibility = ProgressBar.GONE
-
-        if (serverJson != "") {
-            try {
-                val divJson = JSONObject(serverJson)
-                val cards = divJson.getJSONArray("cards")
-
-                val card = cards.getJSONObject(id)
-                val templateJson = card.optJSONObject("templates")
-                val cardJson = card.getJSONObject("card")
-
-                val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
-                (oldView.parent as ViewGroup).removeView(oldView)
-
-                val div = LinearLayout(this)
-
-                div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                div.orientation = LinearLayout.VERTICAL
-                div.id = R.id.main_layout
-                div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
-                binding.root.findViewById<ScrollView>(R.id.scroll).addView(div)
-
-                val editor: SharedPreferences.Editor = setting.edit()
-                editor.putInt("card", id)
-                editor.apply()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
-            }
-        } else {
-            Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
-        }
-    }
-
     private fun createDivConfiguration(): DivConfiguration {
         return DivConfiguration.Builder(MedDivImageLoader(this))
-            .actionHandler(MedDivActionHandler())
+            .actionHandler(UIDiv2ActionHandler(this))
             .supportHyphenation(true)
+            .typefaceProvider(YandexSansDivTypefaceProvider(this))
             .visualErrorsEnabled(true)
             .build()
+    }
+}
+
+class YandexSansDivTypefaceProvider @Inject constructor(
+    private val context: Context
+) : DivTypefaceProvider {
+
+    override fun getRegular(): Typeface {
+        return ResourcesCompat.getFont(context, R.font.inter_regular) ?: Typeface.DEFAULT
+    }
+
+    override fun getMedium(): Typeface {
+        return ResourcesCompat.getFont(context, R.font.inter_semibold) ?: Typeface.DEFAULT
+    }
+
+    override fun getLight(): Typeface {
+        return ResourcesCompat.getFont(context, R.font.inter_regular) ?: Typeface.DEFAULT
+    }
+
+    override fun getBold(): Typeface {
+        return ResourcesCompat.getFont(context, R.font.inter_bold) ?: Typeface.DEFAULT
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun getRegularLegacy(): Typeface {
+        /**
+         *  |ya_regular| includes both regular and italic variant.
+         *  It is used in rich text in legacy divs.
+         */
+        return ResourcesCompat.getFont(context, R.font.inter_regular) ?: Typeface.DEFAULT
     }
 }
 
@@ -160,7 +195,37 @@ internal class DivViewFactory(private val context: Div2Context, private val temp
     }
 }
 
-class MedDivActionHandler: DivActionHandler() {}
+class UIDiv2ActionHandler(private val context: Context) : DivActionHandler() {
+    override fun handleAction(action: DivAction, view: DivViewFacade): Boolean {
+        super.handleAction(action, view)
+        if (action.url == null) return false
+        val uri = action.url!!.evaluate(view.expressionResolver)
+        return handleActivityActionUrl(uri)
+    }
+
+    private fun handleActivityActionUrl(uri: Uri): Boolean {
+        when (uri.getQueryParameter("activity")) {
+            "calling" -> startActivityAction(CallingActivity::class.java, uri)
+            "call" -> startActivityAction(CallActivity::class.java, uri)
+            else -> return false
+        }
+        return true
+    }
+
+    private fun startActivityAction(klass: Class<out Activity>, uri: Uri) {
+        val addIntent = Intent(context, klass)
+
+        if (uri.getQueryParameter("status") != null) {
+            addIntent.putExtra("status", uri.getQueryParameter("status")!!)
+        }
+
+        if (uri.getQueryParameter("guid") != null) {
+            addIntent.putExtra("guid", uri.getQueryParameter("guid")!!)
+        }
+
+        startActivity(context, addIntent, null)
+    }
+}
 
 class MedDivImageLoader(context: Context) : DivImageLoader {
     private val appContext = context.applicationContext
