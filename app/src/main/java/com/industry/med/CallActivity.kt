@@ -43,7 +43,7 @@ class CallActivity : AppCompatActivity() {
         bottomNavigation.setOnItemSelectedListener { item ->
             when(item.itemId) {
                 R.id.home_link -> {
-                    startActivity(this, Intent(this, CallActivity::class.java), null)
+                    startActivity(this, Intent(this, MedActivity::class.java), null)
                 }
                 R.id.calendar_link -> {
 
@@ -77,7 +77,6 @@ class CallActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) {
-                        Toast.makeText(this@CallActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
                         throw Exception("Запрос к серверу не был успешен: ${response.code} ${response.message}")
                     }
 
