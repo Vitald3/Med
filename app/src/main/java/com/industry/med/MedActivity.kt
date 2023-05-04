@@ -38,7 +38,7 @@ import java.io.IOException
 import androidx.core.content.ContextCompat.startActivity
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
-import com.yandex.div.font.DivTypefaceProvider
+import com.yandex.div.core.font.DivTypefaceProvider
 import javax.inject.Inject
 
 class MedActivity : AppCompatActivity() {
@@ -97,7 +97,6 @@ class MedActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) {
-                        Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
                         throw Exception("Запрос к серверу не был успешен: ${response.code} ${response.message}")
                     }
 
