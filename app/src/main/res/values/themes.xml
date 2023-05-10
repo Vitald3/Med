@@ -17,4 +17,10 @@
     <style name="CircularProgress" parent="Theme.AppCompat.Light">
         <item name="colorAccent">#5DB075</item>
     </style>
+
+    <style name="DatePicker" parent="Theme.AppCompat.Light.Dialog">
+        <item name="colorAccent">#5DB075</item>
+        <item name="colorControlActivated">#5DB075</item>
+        <item name="android:textColorSecondaryInverse">@color/white</item>
+    </style>
 </resources>

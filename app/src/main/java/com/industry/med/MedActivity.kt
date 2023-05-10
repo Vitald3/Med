@@ -1,20 +1,33 @@
 package com.industry.med
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricPrompt
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
 import com.industry.med.databinding.MainBinding
@@ -22,10 +35,6 @@ import com.squareup.picasso.OkHttp3Downloader
 import com.squareup.picasso.Picasso
 import com.squareup.picasso.Target
 import com.yandex.div.DivDataTag
-import com.yandex.div.core.Div2Context
-import com.yandex.div.core.DivActionHandler
-import com.yandex.div.core.DivConfiguration
-import com.yandex.div.core.DivViewFacade
 import com.yandex.div.core.images.*
 import com.yandex.div.core.view2.Div2View
 import com.yandex.div.data.DivParsingEnvironment
@@ -34,19 +43,32 @@ import com.yandex.div2.DivAction
 import com.yandex.div2.DivData
 import okhttp3.*
 import org.json.JSONObject
-import java.io.IOException
 import androidx.core.content.ContextCompat.startActivity
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
+import com.yandex.div.core.*
+import com.yandex.div.core.downloader.DivDownloader
+import com.yandex.div.core.downloader.DivPatchDownloadCallback
 import com.yandex.div.core.font.DivTypefaceProvider
+import com.yandex.div2.DivPatch
+import kotlinx.coroutines.*
+import org.json.JSONException
 import javax.inject.Inject
 
-class MedActivity : AppCompatActivity() {
+private lateinit var view: Div2View
+private var coord = false
+
+class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
     private lateinit var binding: MainBinding
     private lateinit var serverJson: String
     private lateinit var divContext: Div2Context
     private lateinit var setting: SharedPreferences
+    private lateinit var token: String
+    private lateinit var doctor: String
+    private var biometric = false
 
+    @RequiresApi(Build.VERSION_CODES.P)
+    @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = MainBinding.inflate(layoutInflater)
@@ -54,24 +76,90 @@ class MedActivity : AppCompatActivity() {
 
         setting = getSharedPreferences("setting", Context.MODE_PRIVATE)
         val card = setting.getInt("card", 0)
+        token = setting.getString("token", "").toString()
+        doctor = setting.getString("doctor", "").toString()
+        biometric = intent.getBooleanExtra("biometric", false)
+        coord = intent.getBooleanExtra("cord", false)
 
         supportActionBar?.hide()
 
+        val progress = findViewById<ProgressBar>(R.id.progress)
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.labelVisibilityMode = NavigationBarView.LABEL_VISIBILITY_UNLABELED
         val items: MenuItem = bottomNavigation.menu.getItem(card)
         items.isChecked = true
 
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (!coord && biometric && token != "") {
+                val layout = binding.root.findViewById<LinearLayout>(R.id.main_layout)
+                val text = TextView(this@MedActivity)
+                text.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                text.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                text.typeface = Typeface.create(null,500,false)
+                text.setPadding(15, 15,15,0)
+                text.setTextColor(Color.BLACK)
+                text.text = "Разрешите приложению доступ к геолокации в настройках устройства, раздел Локация - Разрешения для приложений - Med - разрешить, и нажмите обновить"
+                layout.addView(text)
+
+                val button = Button(this@MedActivity)
+                val params = LinearLayout.LayoutParams(360, LinearLayout.LayoutParams.WRAP_CONTENT)
+                params.setMargins(0, 30, 0, 0)
+                params.gravity = Gravity.CENTER
+                button.layoutParams = params
+                button.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                button.typeface = Typeface.create(null,500,false)
+                button.text = "Обновить"
+                button.setPadding(30, 0,30,0)
+                button.setTextColor(Color.WHITE)
+                button.background = ContextCompat.getDrawable(this, R.drawable.bac)
+                layout.addView(button)
+
+                button.setOnClickListener {
+                    if (biometric) {
+                        val addIntent = Intent(this, MedActivity::class.java)
+                        addIntent.putExtra("biometric", true)
+                        startActivity(addIntent)
+                        finish()
+                    } else {
+                        startActivity(this, Intent(this, MedActivity::class.java), null)
+                        finish()
+                    }
+                }
+
+                bottomNavigation.visibility = BottomNavigationView.GONE
+                progress.visibility = ProgressBar.GONE
+                return
+            }
+        } else {
+            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
+        }
+
         bottomNavigation.setOnItemSelectedListener { item ->
             when(item.itemId) {
                 R.id.home_link -> {
-                    startActivity(this, Intent(this, MedActivity::class.java), null)
+                    if (biometric) {
+                        val addIntent = Intent(this, MedActivity::class.java)
+                        addIntent.putExtra("biometric", true)
+                        if (coord) addIntent.putExtra("cord", true)
+                        startActivity(addIntent)
+                        finish()
+                    } else {
+                        startActivity(this, Intent(this, MedActivity::class.java), null)
+                        finish()
+                    }
                 }
                 R.id.calendar_link -> {
-
+                    if (coord) {
+                        startActivity(this, Intent(this, CalendarActivity::class.java), null)
+                        finish()
+                    }
                 }
                 R.id.calling_link -> {
-                    startActivity(this, Intent(this, CallingActivity::class.java), null)
+                    if (biometric && coord) {
+                        startActivity(this, Intent(this, CallingActivity::class.java), null)
+                        finish()
+                    }
                 }
                 R.id.profile_link -> {
 
@@ -86,74 +174,249 @@ class MedActivity : AppCompatActivity() {
             configuration = createDivConfiguration()
         )
 
-        val request = Request.Builder().url("https://api.florazon.net/laravel/public/med?json=home").build()
-        val client = OkHttpClient()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                e.printStackTrace()
+        if (token != "") {
+            if (!biometric) {
+                if (BiometricUtils.isBiometricReady(this)) {
+                    BiometricUtils.showBiometricPrompt(
+                        activity = this,
+                        listener = this,
+                        cryptoObject = null,
+                    )
+                } else {
+                    Toast.makeText(this, "На этом устройстве не поддерживается биометрическая функция", Toast.LENGTH_SHORT).show()
+                }
+            } else if (coord) {
+                loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+            } else {
+                progress.visibility = ProgressBar.GONE
             }
+        } else {
+            biometric = true
+            loadAfter("https://api.florazon.net/laravel/public/med?json=auth")
+        }
+    }
 
-            override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    if (!response.isSuccessful) {
-                        throw Exception("Запрос к серверу не был успешен: ${response.code} ${response.message}")
-                    }
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun loadAfter(url: String) {
+        val progress = findViewById<ProgressBar>(R.id.progress)
 
-                    val json = response.body!!.string()
+        if (biometric) {
+            progress.visibility = ProgressBar.VISIBLE
 
-                    runOnUiThread {
-                        serverJson = json
+            GlobalScope.launch(Dispatchers.Main) {
+                val client = OkHttpClient()
 
-                        val progress = findViewById<ProgressBar>(R.id.progress)
-                        progress.visibility = ProgressBar.GONE
+                val json = client.loadText(url)
 
-                        if (serverJson != "") {
-                            try {
-                                val divJson = JSONObject(serverJson)
-                                val templateJson = divJson.optJSONObject("templates")
-                                val cardJson = divJson.getJSONObject("card")
+                progress.visibility = ProgressBar.GONE
+                serverJson = json.toString()
 
-                                val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
-                                (oldView.parent as ViewGroup).removeView(oldView)
+                if (serverJson != "") {
+                    val divJson = JSONObject(serverJson)
+                    val templateJson = divJson.optJSONObject("templates")
+                    val cardJson = divJson.getJSONObject("card")
 
-                                val div = LinearLayout(this@MedActivity)
+                    val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
+                    (oldView.parent as ViewGroup).removeView(oldView)
 
-                                div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                                div.orientation = LinearLayout.VERTICAL
-                                div.id = R.id.main_layout
-                                div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
-                                binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
+                    val div = LinearLayout(this@MedActivity)
 
-                                val editor: SharedPreferences.Editor = setting.edit()
-                                editor.putInt("card", 0)
-                                editor.apply()
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
-                            }
-                        } else {
-                            Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
-                        }
-                    }
+                    div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    div.orientation = LinearLayout.VERTICAL
+                    div.id = R.id.main_layout
+                    view = DivViewFactory(divContext, templateJson).createView(cardJson)
+                    div.addView(view)
+
+                    binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
+
+                    val editor: SharedPreferences.Editor = setting.edit()
+                    editor.putInt("card", 0)
+                    editor.apply()
+                } else {
+                    Toast.makeText(this@MedActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
                 }
             }
-        })
+        } else {
+            progress.visibility = ProgressBar.GONE
+        }
+    }
+
+    override fun onBiometricAuthenticateError(error: Int, errMsg: String) {
+        when (error) {
+            BiometricPrompt.ERROR_USER_CANCELED -> finish()
+            BiometricPrompt.ERROR_NEGATIVE_BUTTON -> {
+                startActivity(Intent(this, MedActivity::class.java))
+                finish()
+            }
+        }
+    }
+
+    override fun onBiometricAuthenticateSuccess(result: BiometricPrompt.AuthenticationResult) {
+        biometric = true
+
+        if (coord) {
+            loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+        } else {
+            val addIntent = Intent(this, MedActivity::class.java)
+            addIntent.putExtra("biometric", true)
+            addIntent.putExtra("cord", false)
+            startActivity(this, addIntent, null)
+            finish()
+        }
     }
 
     private fun createDivConfiguration(): DivConfiguration {
         return DivConfiguration.Builder(MedDivImageLoader(this))
             .actionHandler(UIDiv2ActionHandler(this))
             .supportHyphenation(true)
+            .divDownloader(DemoDivDownloader(this, setting))
             .typefaceProvider(YandexSansDivTypefaceProvider(this))
             .visualErrorsEnabled(true)
             .build()
     }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun onLocationChanged(location: Location) {
+        val latitude = location.latitude
+        val longitude = location.longitude
+
+        coord = true
+
+        GlobalScope.launch(Dispatchers.Main) {
+            val client = OkHttpClient()
+
+            client.loadText("https://api.florazon.net/laravel/public/med?token=$token&latitude=$latitude&longitude=$longitude")
+        }
+    }
+
+    override fun onProviderEnabled(provider: String) {
+        if (!coord) {
+            val addIntent = Intent(this, MedActivity::class.java)
+            if (token != "" && biometric) addIntent.putExtra("biometric", true)
+            addIntent.putExtra("cord", true)
+            startActivity(addIntent)
+            finish()
+        }
+    }
+
+    override fun onProviderDisabled(provider: String) {
+        if (token != "" && biometric) Toast.makeText(this, "Включите геолокацию на ващем устройстве", Toast.LENGTH_SHORT).show()
+
+        if (coord) {
+            val addIntent = Intent(this, MedActivity::class.java)
+            if (token != "" && biometric) addIntent.putExtra("biometric", true)
+            addIntent.putExtra("cord", false)
+            startActivity(addIntent)
+            finish()
+        }
+
+        coord = false
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
 }
 
-class YandexSansDivTypefaceProvider @Inject constructor(
-    private val context: Context
-) : DivTypefaceProvider {
+@Suppress("BlockingMethodInNonBlockingContext")
+suspend fun OkHttpClient.loadText(uri: String): String? = withContext(Dispatchers.IO) {
+    val request = Request.Builder().url(uri).build()
+    return@withContext newCall(request).execute().body?.string()
+}
+
+class DemoDivDownloader(private val cont: Context, private val setting: SharedPreferences) : DivDownloader {
+    private fun JSONObject.asDivPatchWithTemplates(errorLogger: ParsingErrorLogger? = null): DivPatch {
+        val templates = optJSONObject("templates")
+        val card = getJSONObject("patch")
+        val environment = createEnvironment(errorLogger, templates)
+        return DivPatch(environment, card)
+    }
+
+    private fun createEnvironment(
+        errorLogger: ParsingErrorLogger?,
+        templates: JSONObject?,
+        componentName: String? = null
+    ): DivParsingEnvironment {
+        val environment = DivParsingEnvironment(errorLogger ?: ParsingErrorLogger.LOG)
+
+        templates?.let {
+            environment.parseTemplatesWithHistograms(templates, componentName)
+        }
+
+        return DivParsingEnvironment(errorLogger ?: ParsingErrorLogger.LOG)
+    }
+
+    private val parsingHistogramReporter = DivKit.getInstance(cont).parsingHistogramReporter
+
+    private fun DivParsingEnvironment.parseTemplatesWithHistograms(templates: JSONObject, componentName: String? = null) {
+        parsingHistogramReporter.measureTemplatesParsing(templates, componentName) {
+            parseTemplates(templates)
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun downloadPatch(divView: Div2View, downloadUrl: String, callback: DivPatchDownloadCallback): LoadReference {
+        val job = GlobalScope.launch(Dispatchers.Main) {
+            val client = OkHttpClient()
+
+            val json = client.loadText(downloadUrl)
+            println(downloadUrl)
+
+            if (json != null) {
+                try {
+                    println(json)
+                    val reload = JSONObject(json).optString("reload")
+                    val error = JSONObject(json).optString("error")
+                    val token = JSONObject(json).optString("Token")
+                    val doctor = JSONObject(json).optString("Doctor")
+                    val authCode = JSONObject(json).optString("ValidationCode")
+
+                    if (authCode != "") {
+                        view.setVariable("send_sms", "1")
+                    }
+
+                    val editor: SharedPreferences.Editor = setting.edit()
+
+                    if (error != "") {
+                        view.setVariable("send_auth_dis", "0")
+
+                        Toast.makeText(
+                            cont,
+                            error,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    if (token != "") {
+                        editor.putString("token", token.toString())
+                        editor.apply()
+                    }
+
+                    if (doctor != "" && token != "") {
+                        editor.putString("doctor", doctor.toString())
+                        editor.apply()
+
+                        if (reload == "0") {
+                            val addIntent = Intent(cont, MedActivity::class.java)
+                            addIntent.putExtra("biometric", true)
+                            startActivity(cont, addIntent, null)
+                        }
+                    }
+
+                    if (reload != "0") callback.onSuccess(JSONObject(json).asDivPatchWithTemplates())
+                } catch (e: JSONException) {
+                    callback.onFail()
+                }
+            } else {
+                callback.onFail()
+            }
+        }
+        return LoadReference {
+            job.cancel("cancel all downloads")
+        }
+    }
+}
+
+class YandexSansDivTypefaceProvider @Inject constructor(private val context: Context) : DivTypefaceProvider {
 
     override fun getRegular(): Typeface {
         return ResourcesCompat.getFont(context, R.font.inter_regular) ?: Typeface.DEFAULT
@@ -220,6 +483,10 @@ class UIDiv2ActionHandler(private val context: Context) : DivActionHandler() {
 
         if (uri.getQueryParameter("guid") != null) {
             addIntent.putExtra("guid", uri.getQueryParameter("guid")!!)
+        }
+
+        if (coord) {
+            addIntent.getBooleanExtra("cord", true)
         }
 
         startActivity(context, addIntent, null)

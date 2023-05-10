@@ -23,31 +23,31 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
-import com.industry.med.databinding.MainBinding
 import com.yandex.div.core.Div2Context
 import com.yandex.div.core.DivConfiguration
 import okhttp3.*
 import org.json.JSONObject
-import androidx.core.widget.NestedScrollView
+import com.industry.med.databinding.CalendarBinding
 import com.yandex.div2.*
 import kotlinx.coroutines.*
+import java.util.*
 
 private var coord = false
 
-class CallActivity : AppCompatActivity(), LocationListener {
-    private lateinit var binding: MainBinding
+class CalendarActivity : AppCompatActivity(), LocationListener {
+    private lateinit var binding: CalendarBinding
     private lateinit var serverJson: String
     private lateinit var divContext: Div2Context
     private lateinit var setting: SharedPreferences
     private var token = ""
     private var doctor = ""
+    private var date = ""
 
     @RequiresApi(Build.VERSION_CODES.P)
     @SuppressLint("SetTextI18n")
-    @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = MainBinding.inflate(layoutInflater)
+        binding = CalendarBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         setting = getSharedPreferences("setting", Context.MODE_PRIVATE)
@@ -67,7 +67,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (!coord && token != "") {
                 val layout = binding.root.findViewById<LinearLayout>(R.id.main_layout)
-                val text = TextView(this@CallActivity)
+                val text = TextView(this@CalendarActivity)
                 text.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 text.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
                 text.typeface = Typeface.create(null,500,false)
@@ -76,7 +76,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
                 text.text = "Разрешите приложению доступ к геолокации в настройках устройства, раздел Локация - Разрешения для приложений - Med - разрешить, и нажмите обновить"
                 layout.addView(text)
 
-                val button = Button(this@CallActivity)
+                val button = Button(this@CalendarActivity)
                 val params = LinearLayout.LayoutParams(360, LinearLayout.LayoutParams.WRAP_CONTENT)
                 params.setMargins(0, 30, 0, 0)
                 params.gravity = Gravity.CENTER
@@ -90,7 +90,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
                 layout.addView(button)
 
                 button.setOnClickListener {
-                    val addIntent = Intent(this, CallActivity::class.java)
+                    val addIntent = Intent(this, CalendarActivity::class.java)
                     startActivity(addIntent)
                     finish()
                 }
@@ -114,7 +114,8 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     finish()
                 }
                 R.id.calendar_link -> {
-                    val addIntent = Intent(this, CalendarActivity::class.java)
+                    val addIntent = Intent(this, CallingActivity::class.java)
+                    addIntent.putExtra("biometric", true)
                     if (coord) addIntent.putExtra("cord", true)
                     startActivity(addIntent)
                     finish()
@@ -134,43 +135,26 @@ class CallActivity : AppCompatActivity(), LocationListener {
         }
 
         divContext = Div2Context(
-            baseContext = this@CallActivity,
+            baseContext = this@CalendarActivity,
             configuration = createDivConfiguration()
         )
 
-        val guid = intent.getStringExtra("guid").toString()
+        val datePicker: DatePicker = findViewById(R.id.datePicker)
+        val today = Calendar.getInstance()
+        datePicker.minDate = today.timeInMillis
 
-        GlobalScope.launch(Dispatchers.Main) {
-            val client = OkHttpClient()
-
-            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor")
-            progress.visibility = ProgressBar.GONE
-
-            if (json != null) {
-                serverJson = json
-
-                progress.visibility = ProgressBar.GONE
-
-                if (serverJson != "") {
-                    val divJson = JSONObject(serverJson)
-                    val templateJson = divJson.optJSONObject("templates")
-                    val cardJson = divJson.getJSONObject("card")
-
-                    val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
-                    (oldView.parent as ViewGroup).removeView(oldView)
-
-                    val div = LinearLayout(this@CallActivity)
-
-                    div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                    div.orientation = LinearLayout.VERTICAL
-                    div.id = R.id.main_layout
-                    div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
-                    binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
-                } else {
-                    Toast.makeText(this@CallActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
-                }
+        datePicker.init(today[Calendar.YEAR], today[Calendar.MONTH], today[Calendar.DAY_OF_MONTH]) { _, year, monthOfYear, dayOfMonth ->
+            val m = if ((monthOfYear + 1) <= 9) {
+                "0"
+            } else {
+                ""
             }
+
+            date = year.toString() + (m + (monthOfYear + 1)) + dayOfMonth.toString()
+            load()
         }
+
+        load()
     }
 
     private fun createDivConfiguration(): DivConfiguration {
@@ -180,6 +164,38 @@ class CallActivity : AppCompatActivity(), LocationListener {
             .typefaceProvider(YandexSansDivTypefaceProvider(this))
             .visualErrorsEnabled(true)
             .build()
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun load() {
+        GlobalScope.launch(Dispatchers.Main) {
+            val client = OkHttpClient()
+
+            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=calendar&token=$token&date=$date")
+
+            if (json != null) {
+                serverJson = json
+
+                if (serverJson != "") {
+                    val divJson = JSONObject(serverJson)
+                    val templateJson = divJson.optJSONObject("templates")
+                    val cardJson = divJson.getJSONObject("card")
+
+                    val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
+                    (oldView.parent as ViewGroup).removeView(oldView)
+
+                    val div = LinearLayout(this@CalendarActivity)
+
+                    div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    div.orientation = LinearLayout.VERTICAL
+                    div.id = R.id.main_layout
+                    div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
+                    binding.root.findViewById<LinearLayout>(R.id.box_layout).addView(div)
+                } else {
+                    Toast.makeText(this@CalendarActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -196,7 +212,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
 
     override fun onProviderEnabled(provider: String) {
         if (!coord) {
-            startActivity(Intent(this, CallActivity::class.java))
+            startActivity(Intent(this, CalendarActivity::class.java))
             finish()
         }
     }
@@ -205,7 +221,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
         Toast.makeText(this, "Включите геолокацию на ващем устройстве", Toast.LENGTH_SHORT).show()
 
         if (coord) {
-            startActivity(Intent(this, CallActivity::class.java))
+            startActivity(Intent(this, CalendarActivity::class.java))
             finish()
         }
     }
