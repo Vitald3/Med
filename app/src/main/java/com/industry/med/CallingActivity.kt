@@ -287,7 +287,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/med?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 

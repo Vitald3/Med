@@ -143,6 +143,7 @@ class CalendarActivity : AppCompatActivity(), LocationListener {
         val today = Calendar.getInstance()
         datePicker.minDate = today.timeInMillis
 
+
         datePicker.init(today[Calendar.YEAR], today[Calendar.MONTH], today[Calendar.DAY_OF_MONTH]) { _, year, monthOfYear, dayOfMonth ->
             val m = if ((monthOfYear + 1) <= 9) {
                 "0"
@@ -206,7 +207,7 @@ class CalendarActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/med?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 

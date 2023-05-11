@@ -131,6 +131,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 return
             }
         } else {
+            coord = true
             val lm = getSystemService(LOCATION_SERVICE) as LocationManager
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
         }
@@ -185,10 +186,16 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 } else {
                     Toast.makeText(this, "На этом устройстве не поддерживается биометрическая функция", Toast.LENGTH_SHORT).show()
                 }
-            } else if (coord) {
-                loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
             } else {
-                progress.visibility = ProgressBar.GONE
+                if (coord) {
+                    loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+                } else {
+                    val addIntent = Intent(this, MedActivity::class.java)
+                    addIntent.putExtra("biometric", true)
+                    addIntent.putExtra("cord", false)
+                    startActivity(this, addIntent, null)
+                    finish()
+                }
             }
         } else {
             biometric = true
@@ -285,7 +292,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/med?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 
