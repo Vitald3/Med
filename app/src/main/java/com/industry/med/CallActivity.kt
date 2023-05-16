@@ -64,6 +64,9 @@ class CallActivity : AppCompatActivity(), LocationListener {
         val items: MenuItem = bottomNavigation.menu.getItem(card)
         items.isChecked = true
 
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        coord = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (!coord && token != "") {
                 val layout = binding.root.findViewById<LinearLayout>(R.id.main_layout)
@@ -90,8 +93,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
                 layout.addView(button)
 
                 button.setOnClickListener {
-                    val addIntent = Intent(this, CallActivity::class.java)
-                    startActivity(addIntent)
+                    ContextCompat.startActivity(this, Intent(this, CallingActivity::class.java), null)
                     finish()
                 }
 
@@ -100,7 +102,6 @@ class CallActivity : AppCompatActivity(), LocationListener {
                 return
             }
         } else {
-            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
         }
 
@@ -176,6 +177,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
     private fun createDivConfiguration(): DivConfiguration {
         return DivConfiguration.Builder(MedDivImageLoader(this))
             .actionHandler(UIDiv2ActionHandler(this))
+            .divDownloader(DemoDivDownloader(this, setting))
             .supportHyphenation(true)
             .typefaceProvider(YandexSansDivTypefaceProvider(this))
             .visualErrorsEnabled(true)

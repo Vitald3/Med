@@ -28,6 +28,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricPrompt
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.startActivity
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
 import com.industry.med.databinding.MainBinding
@@ -35,35 +38,32 @@ import com.squareup.picasso.OkHttp3Downloader
 import com.squareup.picasso.Picasso
 import com.squareup.picasso.Target
 import com.yandex.div.DivDataTag
+import com.yandex.div.core.*
+import com.yandex.div.core.downloader.DivDownloader
+import com.yandex.div.core.downloader.DivPatchDownloadCallback
+import com.yandex.div.core.font.DivTypefaceProvider
 import com.yandex.div.core.images.*
 import com.yandex.div.core.view2.Div2View
 import com.yandex.div.data.DivParsingEnvironment
 import com.yandex.div.json.ParsingErrorLogger
 import com.yandex.div2.DivAction
 import com.yandex.div2.DivData
-import okhttp3.*
-import org.json.JSONObject
-import androidx.core.content.ContextCompat.startActivity
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.widget.NestedScrollView
-import com.yandex.div.core.*
-import com.yandex.div.core.downloader.DivDownloader
-import com.yandex.div.core.downloader.DivPatchDownloadCallback
-import com.yandex.div.core.font.DivTypefaceProvider
 import com.yandex.div2.DivPatch
 import kotlinx.coroutines.*
+import okhttp3.*
 import org.json.JSONException
+import org.json.JSONObject
 import javax.inject.Inject
 
 private lateinit var view: Div2View
 private var coord = false
+private lateinit var token: String
 
 class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
     private lateinit var binding: MainBinding
     private lateinit var serverJson: String
     private lateinit var divContext: Div2Context
     private lateinit var setting: SharedPreferences
-    private lateinit var token: String
     private lateinit var doctor: String
     private var biometric = false
 
@@ -88,6 +88,9 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         bottomNavigation.labelVisibilityMode = NavigationBarView.LABEL_VISIBILITY_UNLABELED
         val items: MenuItem = bottomNavigation.menu.getItem(card)
         items.isChecked = true
+
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        coord = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (!coord && biometric && token != "") {
@@ -131,8 +134,6 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 return
             }
         } else {
-            coord = true
-            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
         }
 
@@ -316,8 +317,6 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
             startActivity(addIntent)
             finish()
         }
-
-        coord = false
     }
 
     @Deprecated("Deprecated in Java")
@@ -365,12 +364,13 @@ class DemoDivDownloader(private val cont: Context, private val setting: SharedPr
         val job = GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            val json = client.loadText(downloadUrl)
-            println(downloadUrl)
+            val url = "$downloadUrl&token=$token"
+
+            val json = client.loadText(url)
+            println(url)
 
             if (json != null) {
                 try {
-                    println(json)
                     val reload = JSONObject(json).optString("reload")
                     val error = JSONObject(json).optString("error")
                     val token = JSONObject(json).optString("Token")
