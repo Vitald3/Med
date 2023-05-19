@@ -25,6 +25,6 @@
         android:id="@+id/profile_link"
         android:color="@color/black"
         android:enabled="true"
-        android:icon="@drawable/profile"
+        android:icon="@drawable/save"
         android:title="Профиль" />
 </menu>

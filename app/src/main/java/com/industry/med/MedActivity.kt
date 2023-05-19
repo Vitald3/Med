@@ -55,9 +55,9 @@ import org.json.JSONException
 import org.json.JSONObject
 import javax.inject.Inject
 
-private lateinit var view: Div2View
+lateinit var view: Div2View
 private var coord = false
-private lateinit var token: String
+lateinit var token: String
 
 class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
     private lateinit var binding: MainBinding
@@ -324,8 +324,13 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
-suspend fun OkHttpClient.loadText(uri: String): String? = withContext(Dispatchers.IO) {
-    val request = Request.Builder().url(uri).build()
+suspend fun OkHttpClient.loadText(uri: String, requestBody: RequestBody? = null): String? = withContext(Dispatchers.IO) {
+    val request = if (requestBody != null) {
+        Request.Builder().method("POST", requestBody).url(uri).build()
+    } else {
+        Request.Builder().url(uri).build()
+    }
+
     return@withContext newCall(request).execute().body?.string()
 }
 

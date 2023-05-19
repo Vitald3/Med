@@ -2,37 +2,49 @@ package com.industry.med
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Typeface
+import android.database.Cursor
+import android.graphics.*
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.util.Base64
 import android.view.Gravity
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
 import com.industry.med.databinding.MainBinding
-import com.yandex.div.core.Div2Context
-import com.yandex.div.core.DivConfiguration
-import okhttp3.*
-import org.json.JSONObject
-import androidx.core.widget.NestedScrollView
+import com.yandex.div.core.*
 import com.yandex.div2.*
 import kotlinx.coroutines.*
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 
 private var coord = false
+private var guid = ""
+private var fileGuid = ""
+private var cont: CallActivity? = null
 
 class CallActivity : AppCompatActivity(), LocationListener {
     private lateinit var binding: MainBinding
@@ -55,6 +67,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
         token = setting.getString("token", "").toString()
         doctor = setting.getString("doctor", "").toString()
         coord = intent.getBooleanExtra("cord", false)
+        cont = this
 
         supportActionBar?.hide()
 
@@ -105,6 +118,11 @@ class CallActivity : AppCompatActivity(), LocationListener {
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
         }
 
+        divContext = Div2Context(
+            baseContext = this@CallActivity,
+            configuration = createDivConfiguration()
+        )
+
         bottomNavigation.setOnItemSelectedListener { item ->
             when(item.itemId) {
                 R.id.home_link -> {
@@ -127,19 +145,14 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     finish()
                 }
                 R.id.profile_link -> {
-
+                    view.setVariable("submit", "1")
                 }
             }
 
             return@setOnItemSelectedListener true
         }
 
-        divContext = Div2Context(
-            baseContext = this@CallActivity,
-            configuration = createDivConfiguration()
-        )
-
-        val guid = intent.getStringExtra("guid").toString()
+        guid = intent.getStringExtra("guid").toString()
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
@@ -165,7 +178,8 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     div.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                     div.orientation = LinearLayout.VERTICAL
                     div.id = R.id.main_layout
-                    div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
+                    view = DivViewFactory(divContext, templateJson).createView(cardJson)
+                    div.addView(view)
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
                 } else {
                     Toast.makeText(this@CallActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
@@ -174,14 +188,98 @@ class CallActivity : AppCompatActivity(), LocationListener {
         }
     }
 
+    private fun queryName(uri: Uri): String {
+        val returnCursor: Cursor = contentResolver.query(uri, null, null, null, null)!!
+        val nameIndex: Int = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        returnCursor.moveToFirst()
+        val name: String = returnCursor.getString(nameIndex)
+        returnCursor.close()
+        return name
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private val pickImageFromGalleryForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val strGuid = fileGuid.replace("-", "")
+            view.setVariable("plus$strGuid", "0")
+            view.setVariable("loader$strGuid", "1")
+            val intent = result.data
+
+            val imageUri: Uri? = intent?.data
+            val bitmap = convertUriToBitmap(imageUri!!)
+            val fileName = queryName(imageUri)
+
+            getStringImage(bitmap).let {
+                GlobalScope.launch(Dispatchers.Main) {
+                    val client = OkHttpClient()
+
+                    val jsonObject = JSONObject()
+                    jsonObject.put("token", token)
+                    jsonObject.put("RequestGUID", guid)
+                    jsonObject.put("FileTypeGUID", fileGuid)
+                    jsonObject.put("FileName", fileName)
+                    jsonObject.put("FileBase64", it)
+                    jsonObject.put("FileTypeDescription", "")
+                    val jsonObjectString = jsonObject.toString()
+                    val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+
+                    val json = client.loadText("https://api.florazon.net/laravel/public/upload", requestBody)
+
+                    if (json != null && json == "Данные успешно сохранены") {
+                        view.setVariable("loader$strGuid", "0")
+                        view.setVariable("gal$strGuid", "1")
+                    } else {
+                        view.setVariable("loader$strGuid", "0")
+                        view.setVariable("plus$strGuid", "1")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun getStringImage(bmp: Bitmap): String {
+        val image = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.JPEG, 100, image)
+        val imageBytes: ByteArray = image.toByteArray()
+        return Base64.encodeToString(imageBytes, Base64.DEFAULT)
+    }
+
+    private fun convertUriToBitmap(uri: Uri) : Bitmap{
+        return if (Build.VERSION.SDK_INT < 28) {
+            MediaStore.Images.Media.getBitmap(contentResolver, uri)
+        } else {
+            val source = ImageDecoder.createSource(contentResolver, uri)
+            ImageDecoder.decodeBitmap(source)
+        }
+    }
+
+    fun pickImageFromGallery(uri: Uri) {
+        val pickIntent = Intent(Intent.ACTION_PICK)
+
+        if (uri.getQueryParameter("guid") != null) {
+            fileGuid = uri.getQueryParameter("guid")!!
+        }
+
+        pickIntent.setDataAndType(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            "image/*"
+        )
+
+        pickImageFromGalleryForResult.launch(pickIntent)
+    }
+
     private fun createDivConfiguration(): DivConfiguration {
         return DivConfiguration.Builder(MedDivImageLoader(this))
-            .actionHandler(UIDiv2ActionHandler(this))
+            .actionHandler(UIDiv2ActionHandlerCall(this))
             .divDownloader(DemoDivDownloader(this, setting))
             .supportHyphenation(true)
             .typefaceProvider(YandexSansDivTypefaceProvider(this))
             .visualErrorsEnabled(true)
             .build()
+    }
+
+    fun alert(text: String) {
+        Toast.makeText(this, text, Toast.LENGTH_LONG).show()
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -214,4 +312,77 @@ class CallActivity : AppCompatActivity(), LocationListener {
 
     @Deprecated("Deprecated in Java")
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+}
+
+class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActionHandler() {
+    override fun handleAction(action: DivAction, view: DivViewFacade): Boolean {
+        super.handleAction(action, view)
+        if (action.url == null) return false
+        val uri = action.url!!.evaluate(view.expressionResolver)
+        return handleActivityActionUrl(uri)
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun handleActivityActionUrl(uri: Uri): Boolean {
+        when (uri.getQueryParameter("gallery")) {
+            "1" -> {
+                callActivity.pickImageFromGallery(uri)
+            }
+        }
+
+        when (uri.getQueryParameter("put")) {
+            "1" -> {
+                GlobalScope.launch(Dispatchers.Main) {
+                    val client = OkHttpClient()
+                    val params = uri.queryParameterNames
+                    val jsonObject = JSONObject()
+
+                    jsonObject.put("token", token)
+                    jsonObject.put("RequestGUID", guid)
+
+                    params.forEach {
+                        jsonObject.put(it, uri.getQueryParameter(it))
+                    }
+
+                    val jsonObjectString = jsonObject.toString()
+
+                    val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+
+                    val json = client.loadText("https://api.florazon.net/laravel/public/save", requestBody)
+
+                    if (json != null) {
+                        println(json)
+                        callActivity.alert(json.toString())
+                    } else {
+                        callActivity.alert("Ошибка, попробуйте еще раз")
+                    }
+                }
+            }
+        }
+
+        when (uri.getQueryParameter("activity")) {
+            "calling" -> startActivityAction(CallingActivity::class.java, uri)
+            "call" -> startActivityAction(CallActivity::class.java, uri)
+            else -> return false
+        }
+        return true
+    }
+
+    private fun startActivityAction(klass: Class<out Activity>, uri: Uri) {
+        val addIntent = Intent(callActivity.applicationContext, klass)
+
+        if (uri.getQueryParameter("status") != null) {
+            addIntent.putExtra("status", uri.getQueryParameter("status")!!)
+        }
+
+        if (uri.getQueryParameter("guid") != null) {
+            addIntent.putExtra("guid", uri.getQueryParameter("guid")!!)
+        }
+
+        if (coord) {
+            addIntent.getBooleanExtra("cord", true)
+        }
+
+        ContextCompat.startActivity(callActivity.applicationContext, addIntent, null)
+    }
 }
