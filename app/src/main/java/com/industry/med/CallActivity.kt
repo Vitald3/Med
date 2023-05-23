@@ -351,7 +351,6 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
                     val json = client.loadText("https://api.florazon.net/laravel/public/save", requestBody)
 
                     if (json != null) {
-                        println(json)
                         callActivity.alert(json.toString())
                     } else {
                         callActivity.alert("Ошибка, попробуйте еще раз")
@@ -363,6 +362,7 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
         when (uri.getQueryParameter("activity")) {
             "calling" -> startActivityAction(CallingActivity::class.java, uri)
             "call" -> startActivityAction(CallActivity::class.java, uri)
+            "med" -> startActivityAction(MedActivity::class.java, uri)
             else -> return false
         }
         return true
@@ -370,6 +370,7 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
 
     private fun startActivityAction(klass: Class<out Activity>, uri: Uri) {
         val addIntent = Intent(callActivity.applicationContext, klass)
+        addIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
 
         if (uri.getQueryParameter("status") != null) {
             addIntent.putExtra("status", uri.getQueryParameter("status")!!)
