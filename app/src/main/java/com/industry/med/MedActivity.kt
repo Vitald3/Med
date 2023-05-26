@@ -33,6 +33,7 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
+import com.google.gson.Gson
 import com.industry.med.databinding.MainBinding
 import com.squareup.picasso.OkHttp3Downloader
 import com.squareup.picasso.Picasso
@@ -58,6 +59,12 @@ import javax.inject.Inject
 lateinit var view: Div2View
 private var coord = false
 lateinit var token: String
+var gps: Long = 120000
+
+data class Json(
+    val gps: Int,
+    val json: String
+)
 
 class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
     private lateinit var binding: MainBinding
@@ -79,7 +86,6 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         token = setting.getString("token", "").toString()
         doctor = setting.getString("doctor", "").toString()
         biometric = intent.getBooleanExtra("biometric", false)
-        coord = intent.getBooleanExtra("cord", false)
 
         supportActionBar?.hide()
 
@@ -90,9 +96,14 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         items.isChecked = true
 
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        coord = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        coord = if (intent.hasExtra("cord")) {
+            intent.getBooleanExtra("cord", false)
+        } else {
+            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (!lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)) {
             if (!coord && biometric && token != "") {
                 val layout = binding.root.findViewById<LinearLayout>(R.id.main_layout)
                 val text = TextView(this@MedActivity)
@@ -134,7 +145,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 return
             }
         } else {
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, gps, 0f, this)
         }
 
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -220,7 +231,9 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 serverJson = json.toString()
 
                 if (serverJson != "") {
-                    val divJson = JSONObject(serverJson)
+                    val gson = Gson().fromJson(serverJson, Json::class.java)
+                    val divJson = JSONObject(gson.json)
+                    gps = gson.gps.toLong()
                     val templateJson = divJson.optJSONObject("templates")
                     val cardJson = divJson.getJSONObject("card")
 
@@ -292,7 +305,6 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
-
             client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
@@ -381,6 +393,7 @@ class DemoDivDownloader(private val cont: Context, private val setting: SharedPr
                     val token = JSONObject(json).optString("Token")
                     val doctor = JSONObject(json).optString("Doctor")
                     val authCode = JSONObject(json).optString("ValidationCode")
+                    val alert = JSONObject(json).optString("alert")
 
                     if (authCode != "") {
                         view.setVariable("send_sms", "1")
@@ -388,9 +401,11 @@ class DemoDivDownloader(private val cont: Context, private val setting: SharedPr
 
                     val editor: SharedPreferences.Editor = setting.edit()
 
-                    if (error != "") {
-                        view.setVariable("send_auth_dis", "0")
+                    if (alert != "") {
+                        Toast.makeText(cont, alert, Toast.LENGTH_LONG).show()
+                    }
 
+                    if (error != "") {
                         Toast.makeText(
                             cont,
                             error,

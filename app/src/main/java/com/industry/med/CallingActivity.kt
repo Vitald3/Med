@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
+import com.google.gson.Gson
 import com.industry.med.databinding.CallingBinding
 import com.yandex.div.core.Div2Context
 import com.yandex.div.core.DivConfiguration
@@ -63,7 +64,6 @@ class CallingActivity : AppCompatActivity(), LocationListener {
         val card = setting.getInt("card", 0)
         token = setting.getString("token", "").toString()
         doctor = setting.getString("doctor", "").toString()
-        coord = intent.getBooleanExtra("cord", false)
 
         supportActionBar?.hide()
 
@@ -76,9 +76,14 @@ class CallingActivity : AppCompatActivity(), LocationListener {
         items.isChecked = true
 
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        coord = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        coord = if (intent.hasExtra("cord")) {
+            intent.getBooleanExtra("cord", false)
+        } else {
+            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (!lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)) {
             if (!coord && token != "") {
                 val layout = binding.root.findViewById<LinearLayout>(R.id.main_layout)
                 val text = TextView(this@CallingActivity)
@@ -113,7 +118,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                 return
             }
         } else {
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 0f, this)
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, gps, 0f, this)
         }
 
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -196,7 +201,9 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                 serverJson = json.toString()
 
                 if (serverJson != "") {
-                    val divJson = JSONObject(serverJson)
+                    val gson = Gson().fromJson(serverJson, Json::class.java)
+                    val divJson = JSONObject(gson.json)
+                    gps = gson.gps.toLong()
                     val templateJson = divJson.optJSONObject("templates")
                     val cardJson = divJson.getJSONObject("card")
 
@@ -236,7 +243,9 @@ class CallingActivity : AppCompatActivity(), LocationListener {
             serverJson = json.toString()
 
             if (serverJson != "") {
-                val divJson = JSONObject(serverJson)
+                val gson = Gson().fromJson(serverJson, Json::class.java)
+                val divJson = JSONObject(gson.json)
+                gps = gson.gps.toLong()
                 val templateJson = divJson.optJSONObject("templates")
                 val cardJson = divJson.getJSONObject("card")
 
