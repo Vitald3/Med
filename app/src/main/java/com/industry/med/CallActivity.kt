@@ -158,11 +158,17 @@ class CallActivity : AppCompatActivity(), LocationListener {
         }
 
         guid = intent.getStringExtra("guid").toString()
+        val pay = intent.getStringExtra("pay")
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor")
+            val json = if (pay != null) {
+                client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor&pay=$pay")
+            } else {
+                client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor")
+            }
+
             progress.visibility = ProgressBar.GONE
 
             if (json != null) {
@@ -188,6 +194,10 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     view = DivViewFactory(divContext, templateJson).createView(cardJson)
                     div.addView(view)
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
+
+                    if (pay != "0" && pay != null) {
+                        view.setVariable("pay", "1")
+                    }
                 } else {
                     Toast.makeText(this@CallActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
                 }
@@ -385,6 +395,10 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
 
         if (uri.getQueryParameter("guid") != null) {
             addIntent.putExtra("guid", uri.getQueryParameter("guid")!!)
+        }
+
+        if (uri.getQueryParameter("pay") != null) {
+            addIntent.putExtra("pay", uri.getQueryParameter("pay")!!)
         }
 
         if (coord) {

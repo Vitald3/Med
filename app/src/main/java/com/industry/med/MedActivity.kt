@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MenuItem
 import android.view.ViewGroup
@@ -33,6 +34,7 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
+import com.google.firebase.messaging.FirebaseMessaging
 import com.google.gson.Gson
 import com.industry.med.databinding.MainBinding
 import com.squareup.picasso.OkHttp3Downloader
@@ -59,11 +61,13 @@ import javax.inject.Inject
 lateinit var view: Div2View
 private var coord = false
 lateinit var token: String
+lateinit var tokenF: String
 var gps: Long = 120000
 
 data class Json(
     val gps: Int,
-    val json: String
+    val json: String,
+    val price: String = "0"
 )
 
 class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
@@ -201,6 +205,14 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
             } else {
                 if (coord) {
                     loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            if (task.result != null && !TextUtils.isEmpty(task.result)) {
+                                tokenF = task.result!!
+                            }
+                        }
+                    }
                 } else {
                     val addIntent = Intent(this, MedActivity::class.java)
                     addIntent.putExtra("biometric", true)
@@ -383,11 +395,17 @@ class DemoDivDownloader(private val cont: Context, private val setting: SharedPr
 
             val url = "$downloadUrl&token=$token"
 
-            val json = client.loadText(url)
+            var json = client.loadText(url)
             println(url)
 
             if (json != null) {
                 try {
+                    if (downloadUrl.contains("analiz")) {
+                        val gson = Gson().fromJson(json, Json::class.java)
+                        json = gson.json
+                        view.setVariable("price1", gson.price)
+                    }
+
                     val reload = JSONObject(json).optString("reload")
                     val error = JSONObject(json).optString("error")
                     val token = JSONObject(json).optString("Token")

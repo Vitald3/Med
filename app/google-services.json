@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "376587296439",
+    "project_id": "misvsk-fd155",
+    "storage_bucket": "misvsk-fd155.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:376587296439:android:e76a1be50de4cd8ff1f732",
+        "android_client_info": {
+          "package_name": "Test.mis"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "376587296439-fvt8e9tg02on92130onvhbaonfbotmll.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD71wvmrjKEH_I-QmTVBh456Z5efVaidBU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "376587296439-fvt8e9tg02on92130onvhbaonfbotmll.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:376587296439:android:f41c52ebe2007968f1f732",
+        "android_client_info": {
+          "package_name": "com.industry.med"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "376587296439-fvt8e9tg02on92130onvhbaonfbotmll.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD71wvmrjKEH_I-QmTVBh456Z5efVaidBU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "376587296439-fvt8e9tg02on92130onvhbaonfbotmll.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
