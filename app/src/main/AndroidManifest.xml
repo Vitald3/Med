@@ -10,6 +10,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Med"
         tools:targetApi="33">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
         <activity
             android:name=".MedActivity"
             android:exported="true">
@@ -19,15 +22,29 @@
             </intent-filter>
         </activity>
         <activity android:name=".CallingActivity" />
-        <activity android:name=".CallActivity" />
+        <activity android:name=".CallActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="OPEN_ACTIVITY" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
         <activity android:name=".CalendarActivity" />
+        <activity
+            android:name=".DisplayAlert"
+            android:theme="@style/Total_Translucent"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.VIEW" />
+            </intent-filter>
+        </activity>
         <service
             android:name=".MessagingServices"
             android:exported="false"
             android:directBootAware="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT"/>
-
             </intent-filter>
         </service>
     </application>

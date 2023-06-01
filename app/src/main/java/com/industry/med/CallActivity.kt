@@ -45,7 +45,7 @@ import java.io.ByteArrayOutputStream
 private var coord = false
 private var guid = ""
 private var fileGuid = ""
-private var cont: CallActivity? = null
+var cont: CallActivity? = null
 
 class CallActivity : AppCompatActivity(), LocationListener {
     private lateinit var binding: MainBinding

@@ -2,4 +2,5 @@
     <string name="app_name">Med</string>
     <string name="v1">Вызовы</string>
     <string name="v2">Поиск</string>
+    <string name="default_notification_channel_id" translatable="false">Default</string>
 </resources>

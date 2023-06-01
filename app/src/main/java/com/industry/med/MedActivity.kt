@@ -54,6 +54,8 @@ import com.yandex.div2.DivData
 import com.yandex.div2.DivPatch
 import kotlinx.coroutines.*
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONException
 import org.json.JSONObject
 import javax.inject.Inject
@@ -78,6 +80,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
     private lateinit var doctor: String
     private var biometric = false
 
+    @OptIn(DelicateCoroutinesApi::class)
     @RequiresApi(Build.VERSION_CODES.P)
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,6 +91,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         setting = getSharedPreferences("setting", Context.MODE_PRIVATE)
         val card = setting.getInt("card", 0)
         token = setting.getString("token", "").toString()
+        tokenF = setting.getString("tokenF", "").toString()
         doctor = setting.getString("doctor", "").toString()
         biometric = intent.getBooleanExtra("biometric", false)
 
@@ -210,6 +214,24 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                         if (task.isSuccessful) {
                             if (task.result != null && !TextUtils.isEmpty(task.result)) {
                                 tokenF = task.result!!
+
+                                GlobalScope.launch(Dispatchers.Main) {
+                                    val client = OkHttpClient()
+
+                                    val jsonObject = JSONObject()
+
+                                    jsonObject.put("Token", token)
+                                    jsonObject.put("TokenFairBase", tokenF)
+
+                                    val jsonObjectString = jsonObject.toString()
+
+                                    val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+                                    client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                                }
+
+                                val editor: SharedPreferences.Editor = setting.edit()
+                                editor.putString("tokenF", tokenF)
+                                editor.apply()
                             }
                         }
                     }
@@ -284,11 +306,39 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     override fun onBiometricAuthenticateSuccess(result: BiometricPrompt.AuthenticationResult) {
         biometric = true
 
         if (coord) {
             loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    if (task.result != null && !TextUtils.isEmpty(task.result)) {
+                        tokenF = task.result!!
+                        println(tokenF)
+
+                        GlobalScope.launch(Dispatchers.Main) {
+                            val client = OkHttpClient()
+
+                            val jsonObject = JSONObject()
+
+                            jsonObject.put("Token", token)
+                            jsonObject.put("TokenFairBase", tokenF)
+
+                            val jsonObjectString = jsonObject.toString()
+
+                            val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+                            client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                        }
+
+                        val editor: SharedPreferences.Editor = setting.edit()
+                        editor.putString("tokenF", tokenF)
+                        editor.apply()
+                    }
+                }
+            }
         } else {
             val addIntent = Intent(this, MedActivity::class.java)
             addIntent.putExtra("biometric", true)

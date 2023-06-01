@@ -5,7 +5,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
+import android.media.RingtoneManager
+import android.net.Uri
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -20,9 +21,14 @@ import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
+
+private var guidM = ""
+
 @SuppressLint("UnspecifiedImmutableFlag", "WrongConstant")
 fun NotificationManager.sendNotification(messageBody: String, title: String, applicationContext: Context) {
-    val contentIntent = Intent(applicationContext, CallingActivity::class.java)
+    val contentIntent = Intent(applicationContext, CallActivity::class.java)
+    contentIntent.putExtra("guid", guidM)
+    contentIntent.putExtra("cord", true)
 
     val contentPendingIntent = PendingIntent.getActivity(
         applicationContext,
@@ -31,20 +37,14 @@ fun NotificationManager.sendNotification(messageBody: String, title: String, app
         PendingIntent.FLAG_UPDATE_CURRENT
     )
 
-    val eggImage = BitmapFactory.decodeResource(
-        applicationContext.resources,
-        R.drawable.border
-    )
+    val defaultSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-    val builder = NotificationCompat.Builder(
-        applicationContext,
-        "Default"
-    )
+    val builder = NotificationCompat.Builder(applicationContext, "Default")
         .setSmallIcon(R.drawable.border)
         .setContentTitle(title)
         .setContentText(messageBody)
         .setContentIntent(contentPendingIntent)
-        .setLargeIcon(eggImage)
+        .setSound(defaultSoundUri)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
 
@@ -56,11 +56,24 @@ fun NotificationManager.cancelNotifications() {
 }
 
 class MessagingServices : FirebaseMessagingService() {
+    @SuppressLint("RestrictedApi")
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "From: ${remoteMessage.from}")
 
         remoteMessage.data.let {
             Log.d(TAG, "Message data payload: " + remoteMessage.data)
+            if (remoteMessage.data["body"] != null && remoteMessage.data["title"] != null && remoteMessage.data["guid"] != null) {
+                val mDisplayAlert = Intent(this, DisplayAlert::class.java)
+                mDisplayAlert.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                mDisplayAlert.putExtra("title", remoteMessage.data["title"])
+                mDisplayAlert.putExtra("body", remoteMessage.data["body"])
+                mDisplayAlert.putExtra("guid", remoteMessage.data["guid"])
+                startActivity(mDisplayAlert)
+            }
+
+            if (remoteMessage.data["guid"] != null) {
+                guidM = remoteMessage.data["guid"].toString()
+            }
         }
 
         remoteMessage.notification?.let {
@@ -71,11 +84,11 @@ class MessagingServices : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         Log.d(TAG, "Refreshed token: $token")
-        if (tokenF != "") sendRegistrationToServer(tokenF)
+        if (com.industry.med.token != "") sendRegistrationToServer(token)
     }
 
     @OptIn(DelicateCoroutinesApi::class)
-    private fun sendRegistrationToServer(token: String) {
+    fun sendRegistrationToServer(token: String) {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
