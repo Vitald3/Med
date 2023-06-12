@@ -178,7 +178,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 }
                 R.id.calling_link -> {
                     if (biometric && coord) {
-                        startActivity(this, Intent(this, CallingActivity::class.java), null)
+                        startActivity(this, Intent(this, CallActivity::class.java), null)
                         finish()
                     }
                 }
@@ -204,7 +204,42 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                         cryptoObject = null,
                     )
                 } else {
-                    Toast.makeText(this, "На этом устройстве не поддерживается биометрическая функция", Toast.LENGTH_SHORT).show()
+                    if (coord) {
+                        biometric = true
+                        loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+
+                        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                if (task.result != null && !TextUtils.isEmpty(task.result)) {
+                                    tokenF = task.result!!
+
+                                    GlobalScope.launch(Dispatchers.Main) {
+                                        val client = OkHttpClient()
+
+                                        val jsonObject = JSONObject()
+
+                                        jsonObject.put("Token", token)
+                                        jsonObject.put("TokenFairBase", tokenF)
+
+                                        val jsonObjectString = jsonObject.toString()
+
+                                        val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+                                        client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                                    }
+
+                                    val editor: SharedPreferences.Editor = setting.edit()
+                                    editor.putString("tokenF", tokenF)
+                                    editor.apply()
+                                }
+                            }
+                        }
+                    } else {
+                        val addIntent = Intent(this, MedActivity::class.java)
+                        addIntent.putExtra("biometric", true)
+                        addIntent.putExtra("cord", false)
+                        startActivity(this, addIntent, null)
+                        finish()
+                    }
                 }
             } else {
                 if (coord) {

@@ -144,7 +144,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     finish()
                 }
                 R.id.calling_link -> {
-                    val addIntent = Intent(this, CallingActivity::class.java)
+                    val addIntent = Intent(this, CallActivity::class.java)
                     if (coord) addIntent.putExtra("cord", true)
                     startActivity(addIntent)
                     finish()
@@ -291,7 +291,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
             .divDownloader(DemoDivDownloader(this, setting))
             .supportHyphenation(true)
             .typefaceProvider(YandexSansDivTypefaceProvider(this))
-            .visualErrorsEnabled(true)
+            .visualErrorsEnabled(false)
             .build()
     }
 

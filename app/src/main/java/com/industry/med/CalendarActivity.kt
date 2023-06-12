@@ -127,7 +127,7 @@ class CalendarActivity : AppCompatActivity(), LocationListener {
                     finish()
                 }
                 R.id.calling_link -> {
-                    val addIntent = Intent(this, CallingActivity::class.java)
+                    val addIntent = Intent(this, CallActivity::class.java)
                     if (coord) addIntent.putExtra("cord", true)
                     startActivity(addIntent)
                     finish()

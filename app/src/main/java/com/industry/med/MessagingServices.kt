@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -30,12 +31,13 @@ fun NotificationManager.sendNotification(messageBody: String, title: String, app
     contentIntent.putExtra("guid", guidM)
     contentIntent.putExtra("cord", true)
 
-    val contentPendingIntent = PendingIntent.getActivity(
-        applicationContext,
-        0,
-        contentIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT
-    )
+    var contentPendingIntent: PendingIntent? = null
+
+    contentPendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        PendingIntent.getActivity(applicationContext, 0, contentIntent, PendingIntent.FLAG_MUTABLE)
+    } else {
+        PendingIntent.getActivity(applicationContext, 0, contentIntent, PendingIntent.FLAG_ONE_SHOT)
+    }
 
     val defaultSoundUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
