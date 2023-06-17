@@ -102,7 +102,7 @@ class MessagingServices : FirebaseMessagingService() {
             val jsonObjectString = jsonObject.toString()
 
             val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
-            client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+            client.loadText("$apiUrl/firebase", requestBody)
         }
     }
 

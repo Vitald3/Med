@@ -178,7 +178,7 @@ class CalendarActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=calendar&token=$token&date=$date")
+            val json = client.loadText("$apiUrl/med?json=calendar&token=$token&date=$date")
 
             if (json != null) {
                 serverJson = json
@@ -215,7 +215,7 @@ class CalendarActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("$apiUrl/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 

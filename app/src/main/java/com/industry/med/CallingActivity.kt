@@ -193,7 +193,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=callings&calling_page=1&status=$status&token=$token&doctor=$doctor")
+            val json = client.loadText("$apiUrl/med?json=callings&calling_page=1&status=$status&token=$token&doctor=$doctor")
             progress.visibility = ProgressBar.GONE
 
             if (json != null) {
@@ -232,12 +232,13 @@ class CallingActivity : AppCompatActivity(), LocationListener {
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun loadApi(x: Int) {
+        emptyData = true
         if (x == 0) loader!!.visibility = ProgressBar.VISIBLE
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            val json = client.loadText("https://api.florazon.net/laravel/public/med?json=callings&calling_page=$page&status=$status&search=$search&token=$token&doctor=$doctor")
+            val json = client.loadText("$apiUrl/med?json=callings&calling_page=$page&status=$status&search=$search&token=$token&doctor=$doctor")
 
             serverJson = json.toString()
 
@@ -270,9 +271,12 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                     div.addView(loader)
 
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
-                } else {
+                } else if (serverJson.contains("Список заявок пуст")) {
                     binding.root.findViewById<LinearLayout>(R.id.main_layout).addView(DivViewFactory(divContext, templateJson).createView(cardJson))
                 }
+
+                emptyData = serverJson.contains("Список заявок пуст") && x == 0
+                if (x == 0) loader!!.visibility = ProgressBar.GONE
             } else {
                 Toast.makeText(this@CallingActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
             }
@@ -296,7 +300,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("$apiUrl/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 

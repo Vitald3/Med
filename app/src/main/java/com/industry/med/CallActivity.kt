@@ -164,9 +164,9 @@ class CallActivity : AppCompatActivity(), LocationListener {
             val client = OkHttpClient()
 
             val json = if (pay != null) {
-                client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor&pay=$pay")
+                client.loadText("$apiUrl/med?json=call&guid=$guid&token=$token&doctor=$doctor&pay=$pay")
             } else {
-                client.loadText("https://api.florazon.net/laravel/public/med?json=call&guid=$guid&token=$token&doctor=$doctor")
+                client.loadText("$apiUrl/med?json=call&guid=$guid&token=$token&doctor=$doctor")
             }
 
             progress.visibility = ProgressBar.GONE
@@ -240,7 +240,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     val jsonObjectString = jsonObject.toString()
                     val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
 
-                    val json = client.loadText("https://api.florazon.net/laravel/public/upload", requestBody)
+                    val json = client.loadText("$apiUrl/upload", requestBody)
 
                     if (json != null && json == "Данные успешно сохранены") {
                         view.setVariable("loader$strGuid", "0")
@@ -307,7 +307,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
 
-            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("$apiUrl/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 
@@ -365,7 +365,7 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
 
                     val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
 
-                    val json = client.loadText("https://api.florazon.net/laravel/public/save", requestBody)
+                    val json = client.loadText("$apiUrl/save", requestBody)
 
                     if (json != null) {
                         callActivity.alert(json.toString())

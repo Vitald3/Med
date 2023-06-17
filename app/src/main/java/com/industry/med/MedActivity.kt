@@ -65,6 +65,7 @@ private var coord = false
 lateinit var token: String
 lateinit var tokenF: String
 var gps: Long = 120000
+var apiUrl: String = "https://misapp.it-industry.tech/laravel/public"
 
 data class Json(
     val gps: Int,
@@ -206,7 +207,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 } else {
                     if (coord) {
                         biometric = true
-                        loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+                        loadAfter("$apiUrl/med?json=home&token=$token&doctor=$doctor")
 
                         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                             if (task.isSuccessful) {
@@ -224,7 +225,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                                         val jsonObjectString = jsonObject.toString()
 
                                         val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
-                                        client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                                        client.loadText("$apiUrl/firebase", requestBody)
                                     }
 
                                     val editor: SharedPreferences.Editor = setting.edit()
@@ -243,7 +244,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                 }
             } else {
                 if (coord) {
-                    loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+                    loadAfter("$apiUrl/med?json=home&token=$token&doctor=$doctor")
 
                     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                         if (task.isSuccessful) {
@@ -261,7 +262,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                                     val jsonObjectString = jsonObject.toString()
 
                                     val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
-                                    client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                                    client.loadText("$apiUrl/firebase", requestBody)
                                 }
 
                                 val editor: SharedPreferences.Editor = setting.edit()
@@ -280,7 +281,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
             }
         } else {
             biometric = true
-            loadAfter("https://api.florazon.net/laravel/public/med?json=auth")
+            loadAfter("$apiUrl/med?json=auth")
         }
     }
 
@@ -346,7 +347,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
         biometric = true
 
         if (coord) {
-            loadAfter("https://api.florazon.net/laravel/public/med?json=home&token=$token&doctor=$doctor")
+            loadAfter("$apiUrl/med?json=home&token=$token&doctor=$doctor")
 
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -365,7 +366,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
                             val jsonObjectString = jsonObject.toString()
 
                             val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
-                            client.loadText("https://api.florazon.net/laravel/public/firebase", requestBody)
+                            client.loadText("$apiUrl/firebase", requestBody)
                         }
 
                         val editor: SharedPreferences.Editor = setting.edit()
@@ -402,7 +403,7 @@ class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
-            client.loadText("https://api.florazon.net/laravel/public/coord?token=$token&latitude=$latitude&longitude=$longitude")
+            client.loadText("$apiUrl/coord?token=$token&latitude=$latitude&longitude=$longitude")
         }
     }
 
