@@ -374,6 +374,43 @@ class UIDiv2ActionHandlerCall(private val callActivity: CallActivity) : DivActio
                     }
                 }
             }
+            "2" -> {
+                GlobalScope.launch(Dispatchers.Main) {
+                    val client = OkHttpClient()
+                    val params = uri.queryParameterNames
+                    val jsonObject = JSONObject()
+
+                    jsonObject.put("Token", token)
+
+                    params.forEach {
+                        jsonObject.put(it, uri.getQueryParameter(it))
+                    }
+
+                    val jsonObjectString = jsonObject.toString()
+
+                    val requestBody = jsonObjectString.toRequestBody("application/json".toMediaTypeOrNull())
+
+                    val json = client.loadText("$apiUrl/add", requestBody)
+
+                    if (json != null) {
+                        val gson = Gson().fromJson(json, Alert::class.java)
+
+                        if (gson.error != null) {
+                            callActivity.alert(gson.error)
+                        } else {
+                            callActivity.alert("Заявка успешно создана")
+
+                            val addIntent = Intent(callActivity.applicationContext, CallActivity::class.java)
+                            addIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            if (coord) addIntent.putExtra("cord", true)
+                            addIntent.putExtra("guid", gson.guid)
+                            ContextCompat.startActivity(callActivity.applicationContext, addIntent, null)
+                        }
+                    } else {
+                        callActivity.alert("Ошибка, попробуйте еще раз")
+                    }
+                }
+            }
         }
 
         when (uri.getQueryParameter("activity")) {

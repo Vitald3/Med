@@ -65,12 +65,17 @@ private var coord = false
 lateinit var token: String
 lateinit var tokenF: String
 var gps: Long = 120000
-var apiUrl: String = "https://misapp.it-industry.tech/laravel/public"
+var apiUrl: String = "https://api.florazon.net/laravel/public"
 
 data class Json(
     val gps: Int,
     val json: String,
     val price: String = "0"
+)
+
+data class Alert(
+    val error: String?,
+    val guid: String?
 )
 
 class MedActivity : AppCompatActivity(), BiometricAuthListener, LocationListener {
