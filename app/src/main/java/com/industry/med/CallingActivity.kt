@@ -271,11 +271,11 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                     div.addView(loader)
 
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
-                } else if (serverJson.contains("Список заявок пуст")) {
+                } else if (!serverJson.contains("Список заявок пуст")) {
                     binding.root.findViewById<LinearLayout>(R.id.main_layout).addView(DivViewFactory(divContext, templateJson).createView(cardJson))
                 }
 
-                emptyData = serverJson.contains("Список заявок пуст") && x == 0
+                emptyData = !serverJson.contains("Список заявок пуст") && x == 0
                 if (x == 0) loader!!.visibility = ProgressBar.GONE
             } else {
                 Toast.makeText(this@CallingActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()

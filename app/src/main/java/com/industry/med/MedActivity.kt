@@ -73,6 +73,13 @@ data class Json(
     val price: String = "0"
 )
 
+data class Button(
+    val buttonText: String,
+    val buttonClick: String,
+    val sta: String,
+    val st: Int
+)
+
 data class Alert(
     val error: String?,
     val guid: String?
@@ -495,6 +502,14 @@ class DemoDivDownloader(private val cont: Context, private val setting: SharedPr
                         val gson = Gson().fromJson(json, Json::class.java)
                         json = gson.json
                         view.setVariable("price1", gson.price)
+                    }
+
+                    if (downloadUrl.contains("changeSta")) {
+                        val gson = Gson().fromJson(json, Button::class.java)
+                        view.setVariable("button_text", gson.buttonText)
+                        view.setVariable("sta", gson.sta)
+                        view.setVariable("button_click", gson.buttonClick)
+                        view.setVariable("st", gson.st.toString())
                     }
 
                     val reload = JSONObject(json).optString("reload")
