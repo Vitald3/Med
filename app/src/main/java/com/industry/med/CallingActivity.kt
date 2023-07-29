@@ -176,9 +176,8 @@ class CallingActivity : AppCompatActivity(), LocationListener {
 
         nestedSV!!.setOnScrollChangeListener(NestedScrollView.OnScrollChangeListener { v, _, scrollY, _, _ ->
             if (scrollY == v.getChildAt(0).measuredHeight - v.measuredHeight) {
-                loader?.visibility = View.VISIBLE
-
                 if (!emptyData) {
+                    loader?.visibility = View.VISIBLE
                     page++
                     loadApi(0)
                 }
@@ -217,7 +216,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
 
                     loader = ProgressBar(this@CallingActivity)
                     loader!!.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                    loader!!.visibility = ProgressBar.GONE
+                    loader!!.visibility = View.GONE
 
                     val divKit = DivViewFactory(divContext, templateJson).createView(cardJson)
                     div.addView(divKit)
@@ -233,7 +232,7 @@ class CallingActivity : AppCompatActivity(), LocationListener {
     @OptIn(DelicateCoroutinesApi::class)
     private fun loadApi(x: Int) {
         emptyData = true
-        if (x == 0) loader!!.visibility = ProgressBar.VISIBLE
+        if (x == 0) loader!!.visibility = View.VISIBLE
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
@@ -248,9 +247,16 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                 gps = gson.gps.toLong()
                 val templateJson = divJson.optJSONObject("templates")
                 val cardJson = divJson.getJSONObject("card")
+                val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
+
+                if (loader!!.parent != null) {
+                    (loader!!.parent as ViewGroup).removeView(loader)
+                }
+
+                loader!!.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                loader!!.visibility = View.GONE
 
                 if (x == 1) {
-                    val oldView = binding.root.findViewById<LinearLayout>(R.id.main_layout)
                     (oldView.parent as ViewGroup).removeView(oldView)
 
                     val div = LinearLayout(this@CallingActivity)
@@ -259,24 +265,16 @@ class CallingActivity : AppCompatActivity(), LocationListener {
                     div.orientation = LinearLayout.VERTICAL
                     div.id = R.id.main_layout
 
-                    loader!!.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                    loader!!.visibility = ProgressBar.GONE
-
                     div.addView(DivViewFactory(divContext, templateJson).createView(cardJson))
-
-                    if (loader!!.parent != null) {
-                        (loader!!.parent as ViewGroup).removeView(loader)
-                    }
-
                     div.addView(loader)
 
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
-                } else if (!serverJson.contains("Список заявок пуст")) {
+                } else if (!gson.json.contains("Список заявок пуст")) {
                     binding.root.findViewById<LinearLayout>(R.id.main_layout).addView(DivViewFactory(divContext, templateJson).createView(cardJson))
+                    binding.root.findViewById<LinearLayout>(R.id.main_layout).addView(loader)
                 }
 
-                emptyData = !serverJson.contains("Список заявок пуст") && x == 0
-                if (x == 0) loader!!.visibility = ProgressBar.GONE
+                emptyData = gson.json.contains("Список заявок пуст") && x == 0
             } else {
                 Toast.makeText(this@CallingActivity, "Ошибка загрузки данных", Toast.LENGTH_LONG).show()
             }

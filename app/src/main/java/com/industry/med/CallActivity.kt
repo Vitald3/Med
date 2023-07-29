@@ -162,7 +162,7 @@ class CallActivity : AppCompatActivity(), LocationListener {
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
-
+            
             val json = if (pay != null) {
                 client.loadText("$apiUrl/med?json=call&guid=$guid&token=$token&doctor=$doctor&pay=$pay")
             } else {
