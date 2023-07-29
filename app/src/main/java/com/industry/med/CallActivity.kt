@@ -194,7 +194,6 @@ class CallActivity : AppCompatActivity(), LocationListener {
                     view = DivViewFactory(divContext, templateJson).createView(cardJson)
                     div.addView(view)
                     binding.root.findViewById<NestedScrollView>(R.id.scroll).addView(div)
-
                     if (pay != "0" && pay != null) {
                         view.setVariable("pay", "1")
                     }

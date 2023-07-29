@@ -236,7 +236,6 @@ class CallingActivity : AppCompatActivity(), LocationListener {
 
         GlobalScope.launch(Dispatchers.Main) {
             val client = OkHttpClient()
-
             val json = client.loadText("$apiUrl/med?json=callings&calling_page=$page&status=$status&search=$search&token=$token&doctor=$doctor")
 
             serverJson = json.toString()
